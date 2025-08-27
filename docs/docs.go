@@ -330,8 +330,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "A REST API server for OTP-based authentication",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {
