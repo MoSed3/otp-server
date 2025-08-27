@@ -1,0 +1,79 @@
+services:
+  otp_server:
+    image: ghcr.io/mosed3/otp-server:latest
+    restart: unless-stopped
+    env_file: .env
+    network_mode: host
+
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: >
+      sh -c "
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass $$REDIS_PASSWORD
+      else
+        redis-server
+      fi
+      "
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - /var/lib/redis/otp-server:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - redis
+
+  postgresql:
+    image: timescale/timescaledb:latest-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-otp}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - /var/lib/postgresql/otp-server:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d ${POSTGRES_DB:-otp} -U ${POSTGRES_USER:-user}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - postgresql
+
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - /var/lib/develop/pgadmin/otp-server:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+    networks:
+      - postgresql
+
+networks:
+  postgresql:
+    driver: bridge
+  redis:
+    driver: bridge

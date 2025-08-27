@@ -1,0 +1,203 @@
+basePath: /api/v1
+definitions:
+  router.GetCurrentUserResponse:
+    properties:
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      phone_number:
+        type: string
+    type: object
+  router.RequestOTPRequest:
+    properties:
+      phone_number:
+        type: string
+    type: object
+  router.RequestOTPResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  router.UpdateProfileRequest:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+    type: object
+  router.VerifyOTPRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  router.VerifyOTPResponse:
+    properties:
+      jwt:
+        type: string
+    type: object
+info:
+  contact:
+    name: Mohammad Seddighi
+  description: A REST API server for OTP-based authentication
+  title: OTP Server API
+  version: 0.1.0
+paths:
+  /auth/request-otp:
+    post:
+      consumes:
+      - application/json
+      description: Creates or finds user by phone number and sends OTP for authentication
+      parameters:
+      - description: Phone number in international format
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/router.RequestOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP token generated successfully
+          schema:
+            $ref: '#/definitions/router.RequestOTPResponse'
+        "400":
+          description: Invalid request format or phone number
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Request OTP for phone number
+      tags:
+      - Authentication
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the OTP code and returns JWT token for authenticated user
+      parameters:
+      - description: Bearer token from request-otp endpoint
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 6-character OTP code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/router.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JWT token for authenticated user
+          schema:
+            $ref: '#/definitions/router.VerifyOTPResponse'
+        "400":
+          description: Invalid request format or OTP code
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid bearer token or OTP code
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify OTP code
+      tags:
+      - Authentication
+  /user/profile:
+    get:
+      consumes:
+      - application/json
+      description: Returns current user information for authenticated requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current user information
+          schema:
+            $ref: '#/definitions/router.GetCurrentUserResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current authenticated user
+      tags:
+      - User
+    put:
+      consumes:
+      - application/json
+      description: Updates the authenticated user's first name and last name
+      parameters:
+      - description: User profile information to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/router.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated user information
+          schema:
+            $ref: '#/definitions/router.GetCurrentUserResponse'
+        "400":
+          description: Invalid request format or validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - User
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and UUID/JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

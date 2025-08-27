@@ -1,0 +1,19 @@
+FROM alpine:latest
+
+RUN mkdir /app
+
+WORKDIR /app
+
+ARG TARGETARCH
+COPY binaries/otp-server-linux-${TARGETARCH} ./main
+COPY binaries/migrate-linux-${TARGETARCH} ./migrate
+RUN chmod +x ./main ./migrate
+
+# Copy migration files
+COPY migrations ./migrations
+
+# Create startup script
+COPY start.sh ./start.sh
+RUN chmod +x ./start.sh
+
+ENTRYPOINT ["./start.sh"]
