@@ -200,6 +200,8 @@ Example:
 
 #### With Docker Setup
 
+⚠️ Attention: make sure your in same directory as `docker-compose.yml` file
+
 If you are running the application using `docker compose`, you can access the CLI by executing commands inside the `otp_server` container:
 
 1.  **Find the container ID or name:**
@@ -214,7 +216,7 @@ If you are running the application using `docker compose`, you can access the CL
     ```
     Example:
     ```bash
-    docker exec -it otp-server-otp_server-1 ./admin list list
+    docker exec -it otp-server-otp_server-1 ./admin list
     ```
 
 ## API Documentation
