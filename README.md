@@ -108,7 +108,7 @@ PGADMIN_DEFAULT_PASSWORD=admin
 -   **`WEBAPP_PORT`**: Port for the web application.
 -   **`CERT_FILE`**, **`KEY_FILE`**: Paths to SSL/TLS certificate and key files for HTTPS (optional).
 
-### Running the Application
+### Running the Application with Docker
 
 1.  **Clone the repository:**
     ```bash
@@ -126,6 +126,95 @@ PGADMIN_DEFAULT_PASSWORD=admin
 3.  **Run the application:**
     ```bash
     docker compose up
+    ```
+
+### Running the Application without Docker (Manual Setup)
+
+To run the application directly on your system without Docker, follow these steps:
+
+1.  **Prerequisites:**
+    *   Go (version 1.25 or higher)
+    *   PostgreSQL database server running locally or accessible
+    *   Redis server running locally or accessible
+    *   `migrate` CLI tool for database migrations: `go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest`
+
+2.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/MoSed3/otp-server.git
+    cd otp-server
+    ```
+
+3.  **Set up environment variables:**
+    Copy `.env.example` to `.env` and configure it with your PostgreSQL and Redis connection details. Ensure `DATABASE_URL`, `REDIS_HOST`, `REDIS_PORT`, etc., are correctly set to point to your local services.
+    ```bash
+    cp .env.example .env
+    # Edit .env with your database and Redis credentials
+    ```
+
+4.  **Install Go dependencies:**
+    ```bash
+    go mod download
+    go mod tidy
+    ```
+
+5.  **Build the server and CLI applications:**
+    ```bash
+    make build # Builds the main server application
+    make build-cli # Builds the admin CLI application
+    ```
+    This will create `server-<os>-<arch>` and `admin-cli-<os>-<arch>` executables in your project root.
+
+6.  **Run database migrations:**
+    Before starting the server, apply the database migrations. Replace the `DATABASE_URL` with the actual connection string from your `.env` file.
+    ```bash
+    migrate -path migrations -database "postgresql://user:1234@127.0.0.1:5432/otp?sslmode=disable" up
+    ```
+    (Adjust the `DATABASE_URL` as per your `.env` configuration.)
+
+7.  **Run the server:**
+    ```bash
+    ./server-<os>-<arch> # Replace with your actual OS and architecture, e.g., ./server-linux-amd64
+    # Alternatively, you can use:
+    # go run ./cmd/server
+    # make run
+    ```
+
+### Accessing the CLI
+
+The project includes an `admin` CLI tool for administrative tasks.
+
+#### With Manual Setup
+
+If you are running the application without Docker, you can execute the CLI directly:
+
+```bash
+./admin-cli-<os>-<arch> # Replace with your actual OS and architecture, e.g., ./admin-cli-linux-amd64
+# Alternatively, you can use:
+# go run ./cmd/admin <command> [args...]
+# make run-cli <command> [args...]
+```
+Example:
+```bash
+./admin-cli-linux-amd64 list
+```
+
+#### With Docker Setup
+
+If you are running the application using `docker compose`, you can access the CLI by executing commands inside the `otp_server` container:
+
+1.  **Find the container ID or name:**
+    ```bash
+    docker ps
+    ```
+    Look for the container running the `otp_server` service (e.g., `otp-server-otp_server-1`).
+
+2.  **Execute CLI commands:**
+    ```bash
+    docker exec -it <container_id_or_name> ./admin <command> [args...]
+    ```
+    Example:
+    ```bash
+    docker exec -it otp-server-otp_server-1 ./admin list list
     ```
 
 ## API Documentation
