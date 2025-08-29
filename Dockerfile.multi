@@ -5,15 +5,14 @@ RUN mkdir /app
 WORKDIR /app
 
 ARG TARGETARCH
-COPY binaries/otp-server-linux-${TARGETARCH} ./main
+COPY binaries/otp-server-linux-${TARGETARCH} ./server
+COPY binaries/admin-linux-${TARGETARCH} ./admin
 COPY binaries/migrate-linux-${TARGETARCH} ./migrate
-RUN chmod +x ./main ./migrate
+COPY start.sh ./start.sh
+
+RUN chmod +x ./server ./admin ./migrate ./start.sh
 
 # Copy migration files
 COPY migrations ./migrations
-
-# Create startup script
-COPY start.sh ./start.sh
-RUN chmod +x ./start.sh
 
 ENTRYPOINT ["./start.sh"]

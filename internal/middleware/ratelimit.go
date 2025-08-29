@@ -6,8 +6,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/MoSed3/otp-server/redis"
+	"github.com/MoSed3/otp-server/internal/redis"
 )
+
+type RateLimiter struct {
+	redisCli *redis.Config
+}
+
+func NewRateLimiter(redisCli *redis.Config) *RateLimiter {
+	return &RateLimiter{
+		redisCli: redisCli,
+	}
+}
 
 func getClientIP(r *http.Request, allowForwarded bool) string {
 	if allowForwarded {
@@ -32,13 +42,13 @@ func getClientIP(r *http.Request, allowForwarded bool) string {
 	return ip
 }
 
-func RateLimit(prefix string, maxRequests int, windowSeconds int, allowForwarded bool) func(http.Handler) http.Handler {
+func (rl *RateLimiter) RateLimit(prefix string, maxRequests int, windowSeconds int, allowForwarded bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getClientIP(r, allowForwarded)
-			key := redis.GetRateLimitKey(prefix, clientIP)
+			key := rl.redisCli.GetRateLimitKey(prefix, clientIP)
 
-			allowed, remaining, err := redis.CheckRateLimit(r.Context(), key, maxRequests, windowSeconds)
+			allowed, remaining, err := rl.redisCli.CheckRateLimit(r.Context(), key, maxRequests, windowSeconds)
 			if err != nil {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return

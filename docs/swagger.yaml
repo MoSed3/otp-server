@@ -1,14 +1,42 @@
 basePath: /api/v1
 definitions:
-  router.GetCurrentUserResponse:
+  models.AdminRole:
+    enum:
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-varnames:
+    - RoleSuperAdmin
+    - RoleSudo
+    - RoleVisitor
+  models.UserStatus:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - UserStatusActive
+    - UserStatusDisabled
+  router.AdminLoginRequest:
     properties:
-      first_name:
+      password:
         type: string
+      username:
+        type: string
+    type: object
+  router.AdminLoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  router.GetCurrentAdminResponse:
+    properties:
       id:
         type: integer
-      last_name:
-        type: string
-      phone_number:
+      role:
+        $ref: '#/definitions/models.AdminRole'
+      username:
         type: string
     type: object
   router.RequestOTPRequest:
@@ -21,12 +49,39 @@ definitions:
       token:
         type: string
     type: object
+  router.SearchUsersResponse:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/router.UserResponse'
+        type: array
+    type: object
   router.UpdateProfileRequest:
     properties:
       first_name:
         type: string
       last_name:
         type: string
+    type: object
+  router.UserResponse:
+    properties:
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      phone_number:
+        type: string
+      status:
+        type: integer
+    type: object
+  router.UserStatusUpdateRequest:
+    properties:
+      status:
+        $ref: '#/definitions/models.UserStatus'
     type: object
   router.VerifyOTPRequest:
     properties:
@@ -35,7 +90,7 @@ definitions:
     type: object
   router.VerifyOTPResponse:
     properties:
-      jwt:
+      token:
         type: string
     type: object
 info:
@@ -43,8 +98,241 @@ info:
     name: Mohammad Seddighi
   description: A REST API server for OTP-based authentication
   title: OTP Server API
-  version: 0.1.0
+  version: 0.2.0
 paths:
+  /admin/profile:
+    get:
+      consumes:
+      - application/json
+      description: Returns current admin information for authenticated requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current admin information
+          schema:
+            $ref: '#/definitions/router.GetCurrentAdminResponse'
+        "401":
+          description: Unauthorized - invalid or missing JWT token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuthAdmin: []
+      summary: Get current authenticated admin
+      tags:
+      - Admin
+  /admin/user/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a user's details by their ID (admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User details
+          schema:
+            $ref: '#/definitions/router.UserResponse'
+        "400":
+          description: Invalid user ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: Insufficient privileges'
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuthAdmin: []
+      summary: Get a single user by ID
+      tags:
+      - Admin
+  /admin/user/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Disable or activate a user (sudo/super admin only)
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New user status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/router.UserStatusUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User details
+          schema:
+            $ref: '#/definitions/router.UserResponse'
+        "400":
+          description: Invalid request format or user ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: Insufficient privileges'
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuthAdmin: []
+      summary: Update user status
+      tags:
+      - Admin
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Search users by phone number, first name, or last name (admin only)
+      parameters:
+      - description: User ID
+        in: query
+        name: id
+        type: integer
+      - description: User phone number
+        in: query
+        name: phone_number
+        type: string
+      - description: User first name
+        in: query
+        name: first_name
+        type: string
+      - description: User last name
+        in: query
+        name: last_name
+        type: string
+      - description: 'User status (1: Active, 2: Disabled)'
+        enum:
+        - 1
+        - 2
+        in: query
+        name: status
+        type: integer
+      - description: Limit for pagination (max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Sort by field
+        enum:
+        - id
+        - phone_number
+        - first_name
+        - last_name
+        - status
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of matching users with total count
+          schema:
+            $ref: '#/definitions/router.SearchUsersResponse'
+        "400":
+          description: Invalid request format
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: Insufficient privileges'
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuthAdmin: []
+      summary: Search users
+      tags:
+      - Admin
+  /auth/admin:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates an admin user and returns a JWT token
+      parameters:
+      - description: Admin credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/router.AdminLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JWT token for authenticated admin
+          schema:
+            $ref: '#/definitions/router.AdminLoginResponse'
+        "400":
+          description: Invalid request format or missing credentials
+          schema:
+            type: string
+        "401":
+          description: Invalid username or password
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Admin login
+      tags:
+      - Admin
   /auth/request-otp:
     post:
       consumes:
@@ -67,15 +355,11 @@ paths:
         "400":
           description: Invalid request format or phone number
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "500":
           description: Internal server error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
       summary: Request OTP for phone number
       tags:
       - Authentication
@@ -106,21 +390,15 @@ paths:
         "400":
           description: Invalid request format or OTP code
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "401":
           description: Invalid bearer token or OTP code
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "500":
           description: Internal server error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
       summary: Verify OTP code
       tags:
       - Authentication
@@ -135,21 +413,17 @@ paths:
         "200":
           description: Current user information
           schema:
-            $ref: '#/definitions/router.GetCurrentUserResponse'
+            $ref: '#/definitions/router.UserResponse'
         "401":
           description: Unauthorized - invalid or missing JWT token
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "500":
           description: Internal server error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
       security:
-      - BearerAuth: []
+      - BearerAuthUser: []
       summary: Get current authenticated user
       tags:
       - User
@@ -170,33 +444,32 @@ paths:
         "200":
           description: Updated user information
           schema:
-            $ref: '#/definitions/router.GetCurrentUserResponse'
+            $ref: '#/definitions/router.UserResponse'
         "400":
           description: Invalid request format or validation error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "401":
           description: Unauthorized - invalid or missing JWT token
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
         "500":
           description: Internal server error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            type: string
       security:
-      - BearerAuth: []
+      - BearerAuthUser: []
       summary: Update user profile
       tags:
       - User
 securityDefinitions:
-  BearerAuth:
-    description: Type "Bearer" followed by a space and UUID/JWT token.
+  BearerAuthAdmin:
+    description: Type "Bearer" followed by a space and JWT token for admin authentication.
+    in: header
+    name: Authorization
+    type: apiKey
+  BearerAuthUser:
+    description: Type "Bearer" followed by a space and JWT token for user authentication.
     in: header
     name: Authorization
     type: apiKey

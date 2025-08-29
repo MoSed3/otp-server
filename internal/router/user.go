@@ -7,16 +7,20 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/MoSed3/otp-server/controller"
-	"github.com/MoSed3/otp-server/middleware"
+	"github.com/MoSed3/otp-server/internal/middleware"
+	"github.com/MoSed3/otp-server/internal/models"
+	"github.com/MoSed3/otp-server/internal/service"
+	"github.com/MoSed3/otp-server/internal/token"
 )
-
-var userController = controller.NewUser(controller.OperatorApi)
 
 var phoneRegex = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 
 type RequestOTPRequest struct {
 	PhoneNumber string `json:"phone_number"`
+}
+
+func (r RequestOTPRequest) validatePhoneNumber() bool {
+	return phoneRegex.MatchString(r.PhoneNumber)
 }
 
 type RequestOTPResponse struct {
@@ -27,20 +31,20 @@ type VerifyOTPRequest struct {
 	Code string `json:"code"`
 }
 
+func (v VerifyOTPRequest) validate() error {
+	if len(v.Code) != 6 {
+		return errors.New("code must be exactly 6 characters")
+	}
+	return nil
+}
+
 type VerifyOTPResponse struct {
-	JWT string `json:"jwt"`
+	Token string `json:"token"`
 }
 
 type UpdateProfileRequest struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
-}
-
-type GetCurrentUserResponse struct {
-	ID          uint   `json:"id"`
-	PhoneNumber string `json:"phone_number"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
 }
 
 func (r UpdateProfileRequest) validate() error {
@@ -53,8 +57,36 @@ func (r UpdateProfileRequest) validate() error {
 	return nil
 }
 
-func (r RequestOTPRequest) validatePhoneNumber() bool {
-	return phoneRegex.MatchString(r.PhoneNumber)
+type UserResponse struct {
+	ID          uint   `json:"id"`
+	PhoneNumber string `json:"phone_number"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Status      int    `json:"status"`
+}
+
+func UserToResponse(u *models.User) UserResponse {
+	return UserResponse{
+		ID:          u.ID,
+		PhoneNumber: u.PhoneNumber,
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		Status:      u.Status.Int(),
+	}
+}
+
+// UserHandler handles user-related HTTP requests.
+type UserHandler struct {
+	userService service.UserService
+	jwtService  *token.JWTService
+}
+
+// NewUserHandler creates a new UserHandler.
+func NewUserHandler(userService service.UserService, jwtService *token.JWTService) *UserHandler {
+	return &UserHandler{
+		userService: userService,
+		jwtService:  jwtService,
+	}
 }
 
 // requestOTP godoc
@@ -65,18 +97,13 @@ func (r RequestOTPRequest) validatePhoneNumber() bool {
 // @Produce json
 // @Param request body RequestOTPRequest true "Phone number in international format"
 // @Success 200 {object} RequestOTPResponse "OTP token generated successfully"
-// @Failure 400 {object} map[string]string "Invalid request format or phone number"
-// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 400 {string} string "Invalid request format or phone number"
+// @Failure 500 {string} string "Internal server error"
 // @Router /auth/request-otp [post]
-func requestOTP(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) requestOTP(w http.ResponseWriter, r *http.Request) {
 	var req RequestOTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	if req.PhoneNumber == "" {
-		http.Error(w, "phone_number is required", http.StatusBadRequest)
 		return
 	}
 
@@ -85,9 +112,13 @@ func requestOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := userController.Login(r.Context(), r, req.PhoneNumber)
+	token, err := h.userService.Login(r.Context(), r, req.PhoneNumber)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if errors.Is(err, service.ErrUserDisabled) {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -108,18 +139,18 @@ func requestOTP(w http.ResponseWriter, r *http.Request) {
 // @Param Authorization header string true "Bearer token from request-otp endpoint"
 // @Param request body VerifyOTPRequest true "6-character OTP code"
 // @Success 200 {object} VerifyOTPResponse "JWT token for authenticated user"
-// @Failure 400 {object} map[string]string "Invalid request format or OTP code"
-// @Failure 401 {object} map[string]string "Invalid bearer token or OTP code"
-// @Failure 500 {object} map[string]string "Internal server error"
+// @Failure 400 {string} string "Invalid request format or OTP code"
+// @Failure 401 {string} string "Invalid bearer token or OTP code"
+// @Failure 500 {string} string "Internal server error"
 // @Router /auth/verify-otp [post]
-func verifyOTP(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) verifyOTP(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 		http.Error(w, "Bearer token required", http.StatusUnauthorized)
 		return
 	}
 
-	token := strings.TrimPrefix(authHeader, "Bearer ")
+	uidToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	var req VerifyOTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -127,30 +158,29 @@ func verifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Code == "" {
-		http.Error(w, "code is required", http.StatusBadRequest)
+	if err := req.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if len(req.Code) != 6 {
-		http.Error(w, "code must be exactly 6 characters", http.StatusBadRequest)
-		return
-	}
-
-	user, err := userController.VerifyOTP(r.Context(), r, token, req.Code)
+	user, err := h.userService.VerifyOTP(r.Context(), r, uidToken, req.Code)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		if errors.Is(err, service.ErrUserDisabled) {
+			http.Error(w, err.Error(), http.StatusForbidden)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
-	jwtToken, err := middleware.GenerateToken(user.ID)
+	jwtToken, err := h.jwtService.GenerateToken(user.ID, token.AudianceUser)
 	if err != nil {
 		http.Error(w, "Failed to generate JWT token", http.StatusInternalServerError)
 		return
 	}
 
 	response := VerifyOTPResponse{
-		JWT: jwtToken,
+		Token: jwtToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -163,20 +193,15 @@ func verifyOTP(w http.ResponseWriter, r *http.Request) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Security BearerAuth
-// @Success 200 {object} GetCurrentUserResponse "Current user information"
-// @Failure 401 {object} map[string]string "Unauthorized - invalid or missing JWT token"
-// @Failure 500 {object} map[string]string "Internal server error"
+// @Security BearerAuthUser
+// @Success 200 {object} UserResponse "Current user information"
+// @Failure 401 {string} string "Unauthorized - invalid or missing JWT token"
+// @Failure 500 {string} string "Internal server error"
 // @Router /user/profile [get]
-func getCurrentUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromRequest(r)
 
-	response := GetCurrentUserResponse{
-		ID:          user.ID,
-		PhoneNumber: user.PhoneNumber,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-	}
+	response := UserToResponse(user)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
@@ -188,14 +213,14 @@ func getCurrentUser(w http.ResponseWriter, r *http.Request) {
 // @Tags User
 // @Accept json
 // @Produce json
-// @Security BearerAuth
+// @Security BearerAuthUser
 // @Param request body UpdateProfileRequest true "User profile information to update"
-// @Success 200 {object} GetCurrentUserResponse "Updated user information"
-// @Failure 400 {object} map[string]string "Invalid request format or validation error"
-// @Failure 401 {object} map[string]string "Unauthorized - invalid or missing JWT token"
-// @Failure 500 {object} map[string]string "Internal server error"
+// @Success 200 {object} UserResponse "Updated user information"
+// @Failure 400 {string} string "Invalid request format or validation error"
+// @Failure 401 {string} string "Unauthorized - invalid or missing JWT token"
+// @Failure 500 {string} string "Internal server error"
 // @Router /user/profile [put]
-func updateProfile(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) updateProfile(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromRequest(r)
 
 	var req UpdateProfileRequest
@@ -210,17 +235,12 @@ func updateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx := middleware.GetTxFromRequest(r)
-	if err := user.Update(tx, req.FirstName, req.LastName); err != nil {
+	if err := h.userService.UpdateProfile(tx, user, req.FirstName, req.LastName); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := GetCurrentUserResponse{
-		ID:          user.ID,
-		PhoneNumber: user.PhoneNumber,
-		FirstName:   user.FirstName,
-		LastName:    user.LastName,
-	}
+	response := UserToResponse(user)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)

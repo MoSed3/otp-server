@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func CheckRateLimit(ctx context.Context, key string, maxRequests int, windowSeconds int) (bool, int, error) {
-	pipe := client.Pipeline()
+func (c *Config) CheckRateLimit(ctx context.Context, key string, maxRequests int, windowSeconds int) (bool, int, error) {
+	pipe := c.client.Pipeline()
 
 	incr := pipe.Incr(ctx, key)
 	pipe.Expire(ctx, key, time.Duration(windowSeconds)*time.Second)
@@ -26,6 +26,6 @@ func CheckRateLimit(ctx context.Context, key string, maxRequests int, windowSeco
 	return count <= int64(maxRequests), remaining, nil
 }
 
-func GetRateLimitKey(prefix, identifier string) string {
+func (c *Config) GetRateLimitKey(prefix, identifier string) string {
 	return fmt.Sprintf("rate_limit:%s:%s", prefix, identifier)
 }

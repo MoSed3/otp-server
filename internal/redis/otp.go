@@ -25,17 +25,17 @@ type UserLoginSession struct {
 	State       LoginState `json:"state"`
 }
 
-func SetUserLoginSession(ctx context.Context, key string, session *UserLoginSession) error {
+func (c *Config) SetUserLoginSession(ctx context.Context, key string, session *UserLoginSession) error {
 	data, err := json.Marshal(session)
 	if err != nil {
 		return err
 	}
 
 	// Set with 3-minute expiration
-	return client.Set(ctx, key, data, 3*time.Minute).Err()
+	return c.client.Set(ctx, key, data, 3*time.Minute).Err()
 }
 
-func CreateUserLoginSession(ctx context.Context, otpID uint, code string) (string, error) {
+func (c *Config) CreateUserLoginSession(ctx context.Context, otpID uint, code string) (string, error) {
 	key := uuid.New().String()
 
 	session := &UserLoginSession{
@@ -45,7 +45,7 @@ func CreateUserLoginSession(ctx context.Context, otpID uint, code string) (strin
 		State: LoginStateWaiting,
 	}
 
-	return key, SetUserLoginSession(ctx, key, session)
+	return key, c.SetUserLoginSession(ctx, key, session)
 }
 
 const luaIncrementTries = `
@@ -67,8 +67,8 @@ redis.call('SET', key, updated, 'EX', 180)
 return updated
 `
 
-func IncreaseUserLoginTries(ctx context.Context, key string) (*UserLoginSession, error) {
-	result, err := client.Eval(ctx, luaIncrementTries, []string{key}).Result()
+func (c *Config) IncreaseUserLoginTries(ctx context.Context, key string) (*UserLoginSession, error) {
+	result, err := c.client.Eval(ctx, luaIncrementTries, []string{key}).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,8 @@ func IncreaseUserLoginTries(ctx context.Context, key string) (*UserLoginSession,
 	return &session, nil
 }
 
-func CheckUserLoginCode(ctx context.Context, token, code string) (uint, error) {
-	session, err := IncreaseUserLoginTries(ctx, token)
+func (c *Config) CheckUserLoginCode(ctx context.Context, token, code string) (uint, error) {
+	session, err := c.IncreaseUserLoginTries(ctx, token)
 	if err != nil {
 		return 0, err
 	}
@@ -106,5 +106,5 @@ func CheckUserLoginCode(ctx context.Context, token, code string) (uint, error) {
 	}
 
 	session.State = LoginStateSuccess
-	return session.OtpID, SetUserLoginSession(ctx, token, session)
+	return session.OtpID, c.SetUserLoginSession(ctx, token, session)
 }

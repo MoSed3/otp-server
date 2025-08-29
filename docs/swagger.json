@@ -6,10 +6,368 @@
         "contact": {
             "name": "Mohammad Seddighi"
         },
-        "version": "0.1.0"
+        "version": "0.2.0"
     },
     "basePath": "/api/v1",
     "paths": {
+        "/admin/profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuthAdmin": []
+                    }
+                ],
+                "description": "Returns current admin information for authenticated requests",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get current authenticated admin",
+                "responses": {
+                    "200": {
+                        "description": "Current admin information",
+                        "schema": {
+                            "$ref": "#/definitions/router.GetCurrentAdminResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - invalid or missing JWT token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuthAdmin": []
+                    }
+                ],
+                "description": "Get a user's details by their ID (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Get a single user by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User details",
+                        "schema": {
+                            "$ref": "#/definitions/router.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient privileges",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/user/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuthAdmin": []
+                    }
+                ],
+                "description": "Disable or activate a user (sudo/super admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Update user status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New user status",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/router.UserStatusUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User details",
+                        "schema": {
+                            "$ref": "#/definitions/router.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format or user ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient privileges",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuthAdmin": []
+                    }
+                ],
+                "description": "Search users by phone number, first name, or last name (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Search users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User phone number",
+                        "name": "phone_number",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User first name",
+                        "name": "first_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "User last name",
+                        "name": "last_name",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            1,
+                            2
+                        ],
+                        "type": "integer",
+                        "description": "User status (1: Active, 2: Disabled)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit for pagination (max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "phone_number",
+                            "first_name",
+                            "last_name",
+                            "status"
+                        ],
+                        "type": "string",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of matching users with total count",
+                        "schema": {
+                            "$ref": "#/definitions/router.SearchUsersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Insufficient privileges",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/admin": {
+            "post": {
+                "description": "Authenticates an admin user and returns a JWT token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin login",
+                "parameters": [
+                    {
+                        "description": "Admin credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/router.AdminLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "JWT token for authenticated admin",
+                        "schema": {
+                            "$ref": "#/definitions/router.AdminLoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format or missing credentials",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid username or password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/request-otp": {
             "post": {
                 "description": "Creates or finds user by phone number and sends OTP for authentication",
@@ -44,19 +402,13 @@
                     "400": {
                         "description": "Invalid request format or phone number",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     }
                 }
@@ -103,28 +455,19 @@
                     "400": {
                         "description": "Invalid request format or OTP code",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "401": {
                         "description": "Invalid bearer token or OTP code",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     }
                 }
@@ -134,7 +477,7 @@
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "BearerAuthUser": []
                     }
                 ],
                 "description": "Returns current user information for authenticated requests",
@@ -152,25 +495,19 @@
                     "200": {
                         "description": "Current user information",
                         "schema": {
-                            "$ref": "#/definitions/router.GetCurrentUserResponse"
+                            "$ref": "#/definitions/router.UserResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized - invalid or missing JWT token",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     }
                 }
@@ -178,7 +515,7 @@
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "BearerAuthUser": []
                     }
                 ],
                 "description": "Updates the authenticated user's first name and last name",
@@ -207,34 +544,25 @@
                     "200": {
                         "description": "Updated user information",
                         "schema": {
-                            "$ref": "#/definitions/router.GetCurrentUserResponse"
+                            "$ref": "#/definitions/router.UserResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid request format or validation error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "401": {
                         "description": "Unauthorized - invalid or missing JWT token",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "type": "string"
                         }
                     }
                 }
@@ -242,19 +570,59 @@
         }
     },
     "definitions": {
-        "router.GetCurrentUserResponse": {
+        "models.AdminRole": {
+            "type": "integer",
+            "enum": [
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "RoleSuperAdmin",
+                "RoleSudo",
+                "RoleVisitor"
+            ]
+        },
+        "models.UserStatus": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "UserStatusActive",
+                "UserStatusDisabled"
+            ]
+        },
+        "router.AdminLoginRequest": {
             "type": "object",
             "properties": {
-                "first_name": {
+                "password": {
                     "type": "string"
                 },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "router.AdminLoginResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "router.GetCurrentAdminResponse": {
+            "type": "object",
+            "properties": {
                 "id": {
                     "type": "integer"
                 },
-                "last_name": {
-                    "type": "string"
+                "role": {
+                    "$ref": "#/definitions/models.AdminRole"
                 },
-                "phone_number": {
+                "username": {
                     "type": "string"
                 }
             }
@@ -275,6 +643,20 @@
                 }
             }
         },
+        "router.SearchUsersResponse": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/router.UserResponse"
+                    }
+                }
+            }
+        },
         "router.UpdateProfileRequest": {
             "type": "object",
             "properties": {
@@ -283,6 +665,34 @@
                 },
                 "last_name": {
                     "type": "string"
+                }
+            }
+        },
+        "router.UserResponse": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "phone_number": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "router.UserStatusUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/models.UserStatus"
                 }
             }
         },
@@ -297,15 +707,21 @@
         "router.VerifyOTPResponse": {
             "type": "object",
             "properties": {
-                "jwt": {
+                "token": {
                     "type": "string"
                 }
             }
         }
     },
     "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and UUID/JWT token.",
+        "BearerAuthAdmin": {
+            "description": "Type \"Bearer\" followed by a space and JWT token for admin authentication.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "BearerAuthUser": {
+            "description": "Type \"Bearer\" followed by a space and JWT token for user authentication.",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

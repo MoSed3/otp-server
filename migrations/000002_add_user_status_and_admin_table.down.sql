@@ -1,0 +1,3 @@
+ALTER TABLE users DROP COLUMN status;
+
+DROP TABLE IF EXISTS admins;

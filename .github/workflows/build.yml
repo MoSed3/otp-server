@@ -27,16 +27,26 @@ jobs:
       - name: Download Dependencies
         run: make deps
 
-      - name: Build binaries for all architectures
+      - name: Build server binaries for all architectures
         run: |
           mkdir -p binaries
           # Build for amd64
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 make build
-          mv otp-server-linux-amd64 binaries/
+          mv server-linux-amd64 binaries/
           
           # Build for arm64
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 make build
-          mv otp-server-linux-arm64 binaries/
+          mv server-linux-arm64 binaries/
+
+      - name: Build admin CLI binaries for all architectures
+        run: |
+          # Build for amd64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 make build-cli
+          mv admin-cli-linux-amd64 binaries/admin-linux-amd64
+          
+          # Build for arm64
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 make build-cli
+          mv admin-cli-linux-arm64 binaries/admin-linux-arm64
 
       - name: Build migration binaries
         run: |
