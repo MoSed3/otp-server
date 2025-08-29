@@ -12,9 +12,9 @@ echo "Migration command exit code: $migration_exit_code"
 if [ $migration_exit_code -eq 0 ]; then
     echo "Migration completed successfully at: $(date)"
     echo "Starting application..."
-    exec ./main
+    exec ./server
 else
     echo "Migration failed with exit code: $migration_exit_code at: $(date)"
-    echo "Exiting without starting main application"
+    echo "Exiting without starting server application"
     exit $migration_exit_code
 fi
